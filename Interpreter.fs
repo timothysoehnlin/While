@@ -87,3 +87,33 @@ module Interpreter =
             match step stm state with
             | (Some(stm'), state') -> Interpret stm' state'
             | (None, state') -> state'
+
+    module DenotationalSemantics =
+
+        let rec private skip = fun s -> s
+
+        and private assign x a = fun s -> Map.add x (EvalAexp a s) s
+
+        and private ifelse b thenStm elseStm =
+            fun s -> if EvalBexp b s
+                     then (denotation thenStm) s
+                     else (denotation elseStm) s
+
+        and private seq stm1 stm2 =
+            fun s -> (denotation stm2) (denotation stm1 s)
+
+        and private whiledo b body =
+            let rec fix f x = f (fix f) x
+            let F g s = if EvalBexp b s then g (denotation body s) else s
+            fix F
+
+        and private denotation stm : (State -> State) =
+            match stm with
+            | Assign(x, a)      -> assign x a
+            | Skip              -> skip
+            | Seq(s1, s2)       -> seq s1 s2
+            | IfElse(b, s1, s2) -> ifelse b s1 s2
+            | While(b, body)    -> whiledo b body
+
+        let Interpret stm state : State =
+            (denotation stm) state
