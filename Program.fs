@@ -1,5 +1,7 @@
 ﻿namespace While
 
+open System.IO
+open Microsoft.FSharp.Text.Lexing
 open While.Interpreter
 
 module Main =
@@ -52,4 +54,13 @@ module Main =
         printfn "Implementation of the Denotational Semantics:"
         printfn "%A" (DenotationalSemantics.Interpret demo (Map.ofList [("i",1); ("j",5)]))
         *)
+        printfn "Enter a While program (Ctrl+Z on new line when finished): "
+        try
+            let lexbuf = LexBuffer<char>.FromTextReader System.Console.In
+            let ast = Parser.ParseStm Lexer.NextToken lexbuf
+            printfn "AST: %A" ast
+            printfn "Output: %A" (NaturalSemantics.Interpret ast Map.empty)
+        with
+        | Lexer.LexerError(msg)   -> fprintf System.Console.Error "Error: %s\n" msg
+        | Parser.SyntaxError(msg) -> fprintf System.Console.Error "Syntax Error: %s\n" msg
         0

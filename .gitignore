@@ -1,3 +1,7 @@
+FSharp.PowerPack.dll
+fslex.exe
+fsyacc.exe
+
 # https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 ## Ignore Visual Studio temporary files, build results, and

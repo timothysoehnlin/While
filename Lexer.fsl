@@ -1,0 +1,44 @@
+﻿{
+module Lexer
+open Parser
+open Microsoft.FSharp.Text.Lexing
+
+exception LexerError of string
+}
+
+let whitespace = [' ' '\t' '\r' '\n' ]+
+let comment    = '#' [^'\n']* '\n'?
+let integer    = ['0'-'9']+
+let identifier = ['A'-'Z' 'a'-'z' '_']['A'-'Z' 'a'-'z' '0'-'9' '_']*
+
+rule NextToken = parse
+| whitespace    { NextToken lexbuf }
+| comment       { NextToken lexbuf }
+
+| "+"           { PLUS }
+| "-"           { MINUS }
+| "*"           { TIMES }
+| "("           { LPAREN }
+| ")"           { RPAREN }
+
+| "true"        { TRUE }
+| "false"       { FALSE }
+| "="           { EQUALS }
+| "<="          { LESSTHANEQUALS }
+| "not"         { NOT }
+| "and"         { AND }
+
+| ":="          { COLONEQUALS }
+| "skip"        { SKIP }
+| ";"           { SEMICOLON }
+| "if"          { IF }
+| "then"        { THEN }
+| "else"        { ELSE }
+| "while"       { WHILE }
+| "do"          { DO }
+
+| integer       { INT(System.Int32.Parse (LexBuffer<_>.LexemeString lexbuf)) }
+| identifier    { IDENT(LexBuffer<_>.LexemeString lexbuf) }
+
+| _             { raise (LexerError(sprintf "Unexpected '%s'" (LexBuffer<_>.LexemeString lexbuf))) }
+| eof           { EOF }

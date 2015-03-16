@@ -1,0 +1,76 @@
+﻿%{
+open While.AST
+open Microsoft.FSharp.Text.Lexing
+
+exception SyntaxError of string
+
+let parse_error msg =
+    raise (SyntaxError(msg))
+%}
+
+%start ParseStm
+
+%token PLUS
+%token MINUS
+%token TIMES
+%token LPAREN
+%token RPAREN
+
+%token TRUE
+%token FALSE
+%token EQUALS
+%token LESSTHANEQUALS
+%token NOT
+%token AND
+
+%token COLONEQUALS
+%token SKIP
+%token SEMICOLON
+%token IF
+%token THEN
+%token ELSE
+%token WHILE
+%token DO
+
+%token <int> INT
+%token <string> IDENT
+
+%token EOF
+
+%type <Stm> ParseStm
+
+%%
+
+ParseStm: seq EOF                   { $1 }
+
+seq:      seq SEMICOLON stm         { Seq($1, $3) }
+        | stm                       { $1 }
+
+stm:      IDENT COLONEQUALS aexp    { Assign($1, $3) }
+        | SKIP                      { Skip }
+        | IF bexp THEN stm ELSE stm { IfElse($2, $4, $6) }
+        | WHILE bexp DO stm         { While($2, $4) }
+        | LPAREN seq RPAREN         { $2 }
+
+aexp:     aexp PLUS term            { Add($1, $3) }
+        | aexp MINUS term           { Sub($1, $3) }
+        | term                      { $1 }
+
+term:     term TIMES factor         { Mul($1, $3) }
+        | factor                    { $1 }
+
+factor:   INT                       { Int($1) }
+        | IDENT                     { Var($1) }
+        | LPAREN aexp RPAREN        { $2 }
+
+bexp:     bexp AND bterm            { And($1, $3) }
+        | bterm                     { $1 }
+
+bterm:    aexp EQUALS aexp          { Eq($1, $3) }
+        | aexp LESSTHANEQUALS aexp  { Lte($1, $3) }
+        | bprimary                  { $1 }
+
+bprimary: NOT bprimary              { Not($2) }
+        | TRUE                      { True }
+        | FALSE                     { False }
+        | LPAREN bexp RPAREN        { $2 }
