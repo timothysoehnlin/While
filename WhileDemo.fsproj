@@ -42,11 +42,11 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AST.fs" />
-    <Compile Include="Analyses.fs" />
-    <Compile Include="Interpreter.fs" />
+    <Compile Include="While.fs" />
+    <Compile Include="Arr.fs" />
+    <Compile Include="Translator.fs" />
     <Compile Include="Examples.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="!Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
