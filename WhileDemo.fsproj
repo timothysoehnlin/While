@@ -45,6 +45,7 @@
     <Compile Include="Lexer.fs" />
     <Compile Include="Analyses.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Compiler.fs" />
     <Compile Include="Examples.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

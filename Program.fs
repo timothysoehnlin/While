@@ -2,7 +2,9 @@
 
 open System.IO
 open Microsoft.FSharp.Text.Lexing
+open While.AST
 open While.Interpreter
+open While.Compiler
 
 module Main =
    
@@ -38,29 +40,23 @@ module Main =
                 (print startState) (print sosEndState)
                 (print startState) (print dsEndState)
 
-    open While.AST
     [<EntryPoint>]
     let main args =
         for program in While.Examples.AllExamples do check program
-        (*
-        let demo =
-            While(Lte(Var("i"), Var("j")),
-                Seq(Assign("i", Add(Var("i"), Int(1))),
-                    Assign("j", Sub(Var("j"), Int(1)))))
-        printfn "\nDemo Program\nImplementation of the Natural Semantics:"
-        printfn "%A" (NaturalSemantics.Interpret demo (Map.ofList [("i",1); ("j",5)]))
-        printfn "Implementation of the Structural Operational Semantics:"
-        printfn "%A" (SOS.Interpret demo (Map.ofList [("i",1); ("j",5)]))
-        printfn "Implementation of the Denotational Semantics:"
-        printfn "%A" (DenotationalSemantics.Interpret demo (Map.ofList [("i",1); ("j",5)]))
-        *)
         printfn "Enter a While program (Ctrl+Z on new line when finished): "
         try
             let lexbuf = LexBuffer<char>.FromTextReader System.Console.In
             let ast = Parser.ParseStm Lexer.NextToken lexbuf
             printfn "AST: %A" ast
-            printfn "Output: %A" (NaturalSemantics.Interpret ast Map.empty)
+
+            let desktop = System.Environment.GetFolderPath System.Environment.SpecialFolder.Desktop
+            Compile ast "program" desktop
+            printfn "Compiled to %s\\program.exe" desktop
+
+            printfn "Interpreting..."
+            printfn "%A" (NaturalSemantics.Interpret ast Map.empty)
         with
-        | Lexer.LexerError(msg)   -> fprintf System.Console.Error "Error: %s\n" msg
+        | Lexer.LexerError(msg)   -> fprintf System.Console.Error "Lexer Error: %s\n" msg
         | Parser.SyntaxError(msg) -> fprintf System.Console.Error "Syntax Error: %s\n" msg
+        | _ as ex -> fprintf System.Console.Error "Error: %s\n" ex.Message
         0
