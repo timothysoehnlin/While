@@ -8,11 +8,11 @@ module Translator =
     let TEMP = "temp"
     let MAX = 0x7FFFFFFF
 
-    let mutable private next = 0;
+    let private next = ref 0
 
     let private genIndex:Arr.Aexp = 
-        next <- next + 1; 
-        Arr.Aexp.Int(next)
+        incr next
+        Arr.Aexp.Int(!next)
 
     let rec private xlateAexp (exp : While.Aexp) : Arr.Aexp =
         match exp with
