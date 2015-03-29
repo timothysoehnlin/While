@@ -8,11 +8,11 @@ module Translator =
     let TEMP = "temp"
     let MAX = 0x7FFFFFFF
 
-    let private next = ref 0
-
-    let private genIndex:Arr.Aexp = 
-        incr next
-        Arr.Aexp.Int(!next)
+    let private genIndex = 
+        let next = ref 0
+        fun() ->
+            incr next
+            Arr.Aexp.Int(!next)
 
     let rec private xlateAexp (exp : While.Aexp) : Arr.Aexp =
         match exp with
@@ -23,9 +23,9 @@ module Translator =
         | While.Aexp.Sub(a1, a2) -> Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)
 
     let rec private xlateBexp (exp : While.Bexp) : Arr.Stm * Arr.Aexp = 
-        let out  = genIndex
-        let itr  = genIndex
-        let itr' = genIndex
+        let out  = genIndex ()
+        let itr  = genIndex ()
+        let itr' = genIndex ()
 
         match exp with
         | While.Bexp.True -> (Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)), out)
@@ -68,7 +68,7 @@ module Translator =
                         stm',
                         Arr.Stm.Seq(
                             Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Add(Arr.Aexp.Arr(TEMP, ind), Arr.Aexp.Arr(TEMP, ind'))),
-                            Arr.Stm.For(TEMP, genIndex, Arr.Aexp.Int(2), Arr.Aexp.Arr(TEMP, itr), Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1))))))), out)        
+                            Arr.Stm.For(TEMP, itr', Arr.Aexp.Int(2), Arr.Aexp.Arr(TEMP, itr), Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1))))))), out)        
 
     /// Translates a While program into an equivalent Arr program.
     ///
@@ -80,12 +80,12 @@ module Translator =
     /// In the Arr program's output, any array whose name starts with
     /// "temp" should be ignored.
     let rec While2Arr (stm : While.Stm) : Arr.Stm =
-        let itr = genIndex
+        let itr = genIndex ()
 
         match stm with
         | While.Stm.Seq(s1, s2) -> Arr.Stm.Seq(While2Arr s1, While2Arr s2)
         | While.Stm.Assign(var, a1) -> Arr.Stm.Assign(var, Arr.Aexp.Int(0), xlateAexp a1)
-        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, genIndex, Arr.Aexp.Int(0))
+        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(0))
         | While.Stm.IfElse(b1, s1, s2) -> 
             let stm, ind = xlateBexp b1
             let s1' = While2Arr s1
