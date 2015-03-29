@@ -35,12 +35,14 @@ module Translator =
                 Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)),
                 Arr.Stm.Seq(
                     Arr.For(TEMP, itr,
-                        Arr.Aexp.Add(Arr.Aexp.Int(1), Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)), Arr.Aexp.Int(0), 
+                        Arr.Aexp.Add(Arr.Aexp.Int(1), Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)), 
+                        Arr.Aexp.Int(0), 
                         Arr.Stm.Seq(
                             Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
                             Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(1)))),
-                    Arr.For(TEMP, itr', 
-                        Arr.Aexp.Int(0), Arr.Aexp.Add(Arr.Aexp.Int(1), Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)), 
+                    Arr.For(TEMP, itr, 
+                        Arr.Aexp.Int(0), 
+                        Arr.Aexp.Sub(Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2), Arr.Aexp.Int(1)), 
                         Arr.Stm.Seq(
                             Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
                             Arr.Stm.Assign(TEMP, itr', Arr.Aexp.Int(MAX)))))), out)
