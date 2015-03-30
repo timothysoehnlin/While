@@ -13,6 +13,7 @@ module Translator =
     let TRUE = Arr.Aexp.Int(1)
     let BOTH_AND = Arr.Aexp.Int(2)
     let VAR_INDEX = Arr.Aexp.Int(0)
+    let SKIP_INDEX = Arr.Aexp.Int(-1)
 
     let rec private toSeq (x:Arr.Stm list)  =
         match x with
@@ -126,8 +127,6 @@ module Translator =
     /// In the Arr program's output, any array whose name starts with
     /// "temp" should be ignored.
     let rec While2Arr (stm : While.Stm) : Arr.Stm =
-        let itr = genIndex ()
-
         match stm with
         | While.Stm.Seq(s1, s2) -> 
             let s1' = While2Arr s1
@@ -136,8 +135,9 @@ module Translator =
         | While.Stm.Assign(var, a1) -> 
             let a1' = xlateAexp a1
             Arr.Stm.Assign(var, VAR_INDEX, a1')
-        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, itr, FALSE)
+        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, SKIP_INDEX, FALSE)
         | While.Stm.IfElse(b1, s1, s2) -> 
+            let itr = genIndex ()
             let (stm', ind) = xlateBexp b1
             let s1' = While2Arr s1
             let s2' = While2Arr s2
@@ -153,6 +153,7 @@ module Translator =
                     s2')
            ]
         | While.Stm.While(b1, s1) -> 
+            let itr = genIndex ()
             let (stm', ind) = xlateBexp b1
             let s1' = While2Arr s1
             let bound = genIndex ()
