@@ -98,10 +98,12 @@ module Translator =
                     Arr.Stm.For(TEMP, itr, Arr.Aexp.Arr(TEMP, ind), Arr.Aexp.Int(0), s2')))
         | While.Stm.While(b1, s1) -> 
             let stm, ind = xlateBexp b1
+            let s1' = While2Arr s1
             Arr.Stm.Seq(stm,
-                Arr.Stm.For(TEMP, itr, Arr.Aexp.Int(1), Arr.Aexp.Arr(TEMP, ind), 
-                    Arr.Stm.Seq(
-                        While2Arr s1, 
+                Arr.Stm.For(TEMP, itr, 
+                    Arr.Aexp.Int(1), 
+                    Arr.Aexp.Arr(TEMP, ind), 
+                    Arr.Stm.Seq(s1', 
                         Arr.Stm.Seq(
-                            Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(1)),
+                            Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(0)),
                             stm))))
