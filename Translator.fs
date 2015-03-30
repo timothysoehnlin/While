@@ -37,9 +37,6 @@ module Translator =
 
     let rec private xlateBexp (exp : While.Bexp) : Arr.Stm * Arr.Aexp = 
         let out  = genIndex ()
-        let itr  = genIndex ()
-        let itr' = genIndex ()
-        let bound = genIndex ()
 
         match exp with
         | While.Bexp.True -> (Arr.Stm.Assign(TEMP, out, TRUE), out)
@@ -47,6 +44,9 @@ module Translator =
         | While.Bexp.Eq(a1, a2) -> 
             let a1' = xlateAexp a1
             let a2' = xlateAexp a2
+            let itr  = genIndex ()
+            let bound = genIndex ()
+
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, TRUE);
                 Arr.Stm.Assign(TEMP, bound, ZERO);
@@ -69,12 +69,15 @@ module Translator =
         | While.Bexp.Lte(a1, a2) -> 
             let a1' = xlateAexp a1
             let a2' = xlateAexp a2
+            let itr  = genIndex ()
+            let bound = genIndex ()
+
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, FALSE);
                 Arr.Stm.Assign(TEMP, bound, ZERO);
                 Arr.For(TEMP, itr, 
                     Arr.Aexp.Sub(a1', a2'), 
-                    bound, 
+                    Arr.Aexp.Arr(TEMP, bound), 
                     toSeq [
                         Arr.Stm.Assign(TEMP, out, TRUE);
                         Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MIN)
@@ -82,6 +85,8 @@ module Translator =
            ], out)
         | While.Bexp.Not(b1) -> 
             let (stm, ind) = xlateBexp b1
+            let itr  = genIndex ()
+
             (toSeq [
                 stm;
                 Arr.Stm.Assign(TEMP, out, TRUE);
@@ -93,6 +98,10 @@ module Translator =
         | While.Bexp.And(b1, b2) -> 
             let (stm1, ind1) = xlateBexp b1
             let (stm2, ind2) = xlateBexp b2
+            let itr  = genIndex ()
+            let itr' = genIndex ()
+            let bound = genIndex ()
+
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, FALSE);
                 stm1;
