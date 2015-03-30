@@ -101,7 +101,6 @@ module Translator =
             let (stm2, ind2) = xlateBexp b2
             let itr  = genIndex ()
             let itr' = genIndex ()
-            let bound = genIndex ()
 
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, FALSE);
@@ -156,16 +155,22 @@ module Translator =
             let itr = genIndex ()
             let (stm', ind) = xlateBexp b1
             let s1' = While2Arr s1
-            let bound = genIndex ()
+            let lower = genIndex ()
+            let upper = genIndex ()
+          
             toSeq [
                 stm';
-                Arr.Stm.Assign(TEMP, bound, TRUE);
+                Arr.Stm.Assign(TEMP, lower, TRUE);
+                Arr.Stm.Assign(TEMP, upper, Arr.Aexp.Arr(TEMP, ind));
                 Arr.Stm.For(TEMP, itr, 
-                    Arr.Aexp.Arr(TEMP, bound), 
-                    Arr.Aexp.Arr(TEMP, ind), 
+                    Arr.Aexp.Arr(TEMP, lower), 
+                    Arr.Aexp.Arr(TEMP, upper), 
                     toSeq [
                         s1'; 
                         stm';
-                        Arr.Stm.Assign(TEMP, bound, FALSE)
+                        Arr.Stm.Assign(TEMP, upper, 
+                            Arr.Aexp.Add(
+                                Arr.Aexp.Arr(TEMP, upper), 
+                                Arr.Aexp.Arr(TEMP, ind)))
                     ])
             ]
