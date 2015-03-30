@@ -89,21 +89,21 @@ module Translator =
         | While.Stm.Assign(var, a1) -> Arr.Stm.Assign(var, Arr.Aexp.Int(0), xlateAexp a1)
         | While.Stm.Skip -> Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(0))
         | While.Stm.IfElse(b1, s1, s2) -> 
-            let stm, ind = xlateBexp b1
+            let stm', ind = xlateBexp b1
             let s1' = While2Arr s1
             let s2' = While2Arr s2
-            Arr.Stm.Seq(stm,
+            Arr.Stm.Seq(stm',
                 Arr.Stm.Seq(
                     Arr.Stm.For(TEMP, itr, Arr.Aexp.Int(1), Arr.Aexp.Arr(TEMP, ind), s1'),
                     Arr.Stm.For(TEMP, itr, Arr.Aexp.Arr(TEMP, ind), Arr.Aexp.Int(0), s2')))
         | While.Stm.While(b1, s1) -> 
-            let stm, ind = xlateBexp b1
+            let stm', ind = xlateBexp b1
             let s1' = While2Arr s1
-            Arr.Stm.Seq(stm,
+            Arr.Stm.Seq(stm',
                 Arr.Stm.For(TEMP, itr, 
                     Arr.Aexp.Int(1), 
                     Arr.Aexp.Arr(TEMP, ind), 
                     Arr.Stm.Seq(s1', 
                         Arr.Stm.Seq(
-                            Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(0)),
-                            stm))))
+                            stm', 
+                            Arr.Stm.Assign(TEMP, itr, Arr.Sub(Arr.Aexp.Arr(TEMP, itr), Arr.Aexp.Int(1)))))))
