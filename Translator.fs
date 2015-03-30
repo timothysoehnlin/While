@@ -4,9 +4,22 @@ module Translator =
 
     module While = While.AST
     module Arr = Arr.AST
-
+   
     let TEMP = "temp"
-    let MAX = 0x7FFFFFFF
+    let FOR_QUIT_MAX = Arr.Aexp.Int(0x7FFFFFFF-1)
+    let FOR_QUIT_MIN = Arr.Aexp.Int(-0x7FFFFFFF+1)
+    let FALSE = Arr.Aexp.Int(0)
+    let ZERO = Arr.Aexp.Int(0)
+    let TRUE = Arr.Aexp.Int(1)
+    let BOTH_AND = Arr.Aexp.Int(2)
+    let VAR_INDEX = Arr.Aexp.Int(0)
+
+    let rec private toSeq (x:Arr.Stm list)  =
+        match x with
+        | fst :: [] -> fst
+        | fst :: snd :: [] -> Arr.Stm.Seq(fst, snd)
+        | fst :: tail -> Arr.Stm.Seq(fst, ( toSeq tail ))
+        | [] -> failwith "Should not have empty lists"
 
     let private genIndex = 
         let next = ref 0
@@ -17,7 +30,7 @@ module Translator =
     let rec private xlateAexp (exp : While.Aexp) : Arr.Aexp =
         match exp with
         | While.Aexp.Int(n) -> Arr.Aexp.Int(n)
-        | While.Aexp.Var(x) -> Arr.Aexp.Arr(x, Arr.Int(0))
+        | While.Aexp.Var(x) -> Arr.Aexp.Arr(x, VAR_INDEX)
         | While.Aexp.Add(a1, a2) -> Arr.Aexp.Add(xlateAexp a1, xlateAexp a2)
         | While.Aexp.Mul(a1, a2) -> Arr.Aexp.Mul(xlateAexp a1, xlateAexp a2)    
         | While.Aexp.Sub(a1, a2) -> Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)
@@ -26,51 +39,73 @@ module Translator =
         let out  = genIndex ()
         let itr  = genIndex ()
         let itr' = genIndex ()
+        let bound = genIndex ()
 
         match exp with
-        | While.Bexp.True -> (Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)), out)
-        | While.Bexp.False -> (Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)), out)
+        | While.Bexp.True -> (Arr.Stm.Assign(TEMP, out, TRUE), out)
+        | While.Bexp.False -> (Arr.Stm.Assign(TEMP, out, FALSE), out)
         | While.Bexp.Eq(a1, a2) -> 
-            (Arr.Stm.Seq(
-                Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)),
-                Arr.Stm.Seq(
-                    Arr.For(TEMP, itr,
-                        Arr.Aexp.Add(Arr.Aexp.Int(1), Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2)), 
-                        Arr.Aexp.Int(0), 
-                        Arr.Stm.Seq(
-                            Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
-                            Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(1)))),
-                    Arr.For(TEMP, itr, 
-                        Arr.Aexp.Int(0), 
-                        Arr.Aexp.Sub(Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2), Arr.Aexp.Int(1)), 
-                        Arr.Stm.Seq(
-                            Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
-                            Arr.Stm.Assign(TEMP, itr', Arr.Aexp.Int(MAX)))))), out)
-        | While.Bexp.Lte(a1, a2) -> 
-            (Arr.Stm.Seq(
-                Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
+            let a1' = xlateAexp a1
+            let a2' = xlateAexp a2
+            (toSeq [
+                Arr.Stm.Assign(TEMP, out, TRUE);
+                Arr.Stm.Assign(TEMP, bound, ZERO);
+                Arr.For(TEMP, itr,
+                    Arr.Aexp.Add(Arr.Aexp.Sub(a1', a2'), Arr.Aexp.Int(1)), 
+                    Arr.Aexp.Arr(TEMP, bound), 
+                    toSeq [
+                        Arr.Stm.Assign(TEMP, out, FALSE);
+                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MIN)
+                    ]);
+                Arr.Stm.Assign(TEMP, bound, ZERO);
                 Arr.For(TEMP, itr, 
-                    Arr.Aexp.Sub(xlateAexp a1, xlateAexp a2), Arr.Aexp.Int(0), 
-                    Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)))), out)
+                    Arr.Aexp.Arr(TEMP, bound), 
+                    Arr.Aexp.Sub(Arr.Aexp.Sub(a1', a2'), Arr.Aexp.Int(1)), 
+                    toSeq [
+                        Arr.Stm.Assign(TEMP, out, FALSE);
+                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MAX)
+                    ])
+           ], out)
+        | While.Bexp.Lte(a1, a2) -> 
+            let a1' = xlateAexp a1
+            let a2' = xlateAexp a2
+            (toSeq [
+                Arr.Stm.Assign(TEMP, out, FALSE);
+                Arr.Stm.Assign(TEMP, bound, ZERO);
+                Arr.For(TEMP, itr, 
+                    Arr.Aexp.Sub(a1', a2'), 
+                    bound, 
+                    toSeq [
+                        Arr.Stm.Assign(TEMP, out, TRUE);
+                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MIN)
+                 ])
+           ], out)
         | While.Bexp.Not(b1) -> 
             let (stm, ind) = xlateBexp b1
-            (Arr.Stm.Seq(
-                stm,
-                Arr.Stm.Seq(
-                    Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1)),
-                    Arr.Stm.For(TEMP, itr, Arr.Aexp.Int(1), Arr.Aexp.Arr(TEMP, ind), Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0))))), out)       
+            (toSeq [
+                stm;
+                Arr.Stm.Assign(TEMP, out, TRUE);
+                Arr.Stm.For(TEMP, itr,
+                    TRUE, 
+                    Arr.Aexp.Arr(TEMP, ind), 
+                    Arr.Stm.Assign(TEMP, out, FALSE))
+            ], out)       
         | While.Bexp.And(b1, b2) -> 
-            let (stm, ind) = xlateBexp b1
-            let (stm', ind') = xlateBexp b2
-            (Arr.Stm.Seq(
-                Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(0)),
-                Arr.Stm.Seq(
-                    stm, 
-                    Arr.Stm.Seq(
-                        stm',
-                        Arr.Stm.Seq(
-                            Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Add(Arr.Aexp.Arr(TEMP, ind), Arr.Aexp.Arr(TEMP, ind'))),
-                            Arr.Stm.For(TEMP, itr', Arr.Aexp.Int(2), Arr.Aexp.Arr(TEMP, itr), Arr.Stm.Assign(TEMP, out, Arr.Aexp.Int(1))))))), out)        
+            let (stm1, ind1) = xlateBexp b1
+            let (stm2, ind2) = xlateBexp b2
+            (toSeq [
+                Arr.Stm.Assign(TEMP, out, FALSE);
+                stm1;
+                stm2;
+                Arr.Stm.Assign(TEMP, itr, 
+                    Arr.Aexp.Add(
+                        Arr.Aexp.Arr(TEMP, ind1), 
+                        Arr.Aexp.Arr(TEMP, ind2)));
+                Arr.Stm.For(TEMP, itr', 
+                    BOTH_AND, 
+                    Arr.Aexp.Arr(TEMP, itr), 
+                    Arr.Stm.Assign(TEMP, out, TRUE))
+            ], out)
 
     /// Translates a While program into an equivalent Arr program.
     ///
@@ -85,25 +120,42 @@ module Translator =
         let itr = genIndex ()
 
         match stm with
-        | While.Stm.Seq(s1, s2) -> Arr.Stm.Seq(While2Arr s1, While2Arr s2)
-        | While.Stm.Assign(var, a1) -> Arr.Stm.Assign(var, Arr.Aexp.Int(0), xlateAexp a1)
-        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, itr, Arr.Aexp.Int(0))
-        | While.Stm.IfElse(b1, s1, s2) -> 
-            let stm', ind = xlateBexp b1
+        | While.Stm.Seq(s1, s2) -> 
             let s1' = While2Arr s1
             let s2' = While2Arr s2
-            Arr.Stm.Seq(stm',
-                Arr.Stm.Seq(
-                    Arr.Stm.For(TEMP, itr, Arr.Aexp.Int(1), Arr.Aexp.Arr(TEMP, ind), s1'),
-                    Arr.Stm.For(TEMP, itr, Arr.Aexp.Arr(TEMP, ind), Arr.Aexp.Int(0), s2')))
-        | While.Stm.While(b1, s1) -> 
-            let stm', ind = xlateBexp b1
+            Arr.Stm.Seq(s1', s2')
+        | While.Stm.Assign(var, a1) -> 
+            let a1' = xlateAexp a1
+            Arr.Stm.Assign(var, VAR_INDEX, a1')
+        | While.Stm.Skip -> Arr.Stm.Assign(TEMP, itr, FALSE)
+        | While.Stm.IfElse(b1, s1, s2) -> 
+            let (stm', ind) = xlateBexp b1
             let s1' = While2Arr s1
-            Arr.Stm.Seq(stm',
+            let s2' = While2Arr s2
+            toSeq [ 
+                stm';
                 Arr.Stm.For(TEMP, itr, 
-                    Arr.Aexp.Int(1), 
+                    TRUE, 
                     Arr.Aexp.Arr(TEMP, ind), 
-                    Arr.Stm.Seq(s1', 
-                        Arr.Stm.Seq(
-                            stm', 
-                            Arr.Stm.Assign(TEMP, itr, Arr.Sub(Arr.Aexp.Arr(TEMP, itr), Arr.Aexp.Int(1)))))))
+                    s1');
+                Arr.Stm.For(TEMP, itr, 
+                    Arr.Aexp.Arr(TEMP, ind), 
+                    FALSE, 
+                    s2')
+           ]
+        | While.Stm.While(b1, s1) -> 
+            let (stm', ind) = xlateBexp b1
+            let s1' = While2Arr s1
+            let bound = genIndex ()
+            toSeq [
+                stm';
+                Arr.Stm.Assign(TEMP, bound, TRUE);
+                Arr.Stm.For(TEMP, itr, 
+                    Arr.Aexp.Arr(TEMP, bound), 
+                    Arr.Aexp.Arr(TEMP, ind), 
+                    toSeq [
+                        s1'; 
+                        stm';
+                        Arr.Stm.Assign(TEMP, bound, FALSE)
+                    ])
+            ]
