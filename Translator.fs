@@ -76,7 +76,7 @@ module Translator =
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, TRUE);
 
-                //Check a1 <= a2
+                //Check a1 <= a2, if a1 <= a2 -1, then a1 < a2 and a1 != a2
                 Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a2', ONE));
                 Arr.For(TEMP, itr,
                     a1', 
@@ -86,7 +86,7 @@ module Translator =
                         Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a1', ONE))
                     ]);
 
-                //Check a2 <= a1
+                //Check a2 <= a1, if a2 <= a1 -1, then a2 < a1 and a2 != a1
                 Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a1', ONE));
                 Arr.For(TEMP, itr, 
                     a2', 
@@ -114,7 +114,7 @@ module Translator =
                         //Mark Lte comparison as true
                         Arr.Stm.Assign(TEMP, out, TRUE);
                         //Set final bound to a2 - 1 to enforce termination
-                        Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a2', ONE))  
+                        Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a1', ONE))  
                  ])
            ], out)
         | While.Bexp.Not(b1) -> 
