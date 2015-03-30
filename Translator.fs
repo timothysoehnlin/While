@@ -8,18 +8,15 @@ module Translator =
     //Store all temp variables under one string
     let TEMP = "temp"
 
-    //Force Int32 Upper/Lower Bounds to signal loop exiting
-    let FOR_QUIT_MAX = Arr.Aexp.Int(0x7FFFFFFF-1)
-    let FOR_QUIT_MIN = Arr.Aexp.Int(-0x7FFFFFFF+1)
+    let ZERO = Arr.Aexp.Int(0)
+    let ONE = Arr.Aexp.Int(1)
 
     //Treat Boolean values as 0 = false and 1 = true
-    let FALSE = Arr.Aexp.Int(0)
-    let TRUE = Arr.Aexp.Int(1)
+    let FALSE = ZERO
+    let TRUE = ONE
     
     //Treat Boolean Intersection as addition
     let BOTH_AND = Arr.Aexp.Int(2) 
-
-    let ZERO = Arr.Aexp.Int(0)
 
     //Default Variable indexes for operations
     let VAR_INDEX = Arr.Aexp.Int(0)
@@ -74,29 +71,29 @@ module Translator =
             let a1' = xlateAexp a1
             let a2' = xlateAexp a2
             let itr  = genIndex ()
-            let bound = genIndex ()
+            let bound = genIndex()
 
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, TRUE);
 
                 //Check a1 <= a2
-                Arr.Stm.Assign(TEMP, bound, ZERO);
+                Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a2', ONE));
                 Arr.For(TEMP, itr,
-                    Arr.Aexp.Add(Arr.Aexp.Sub(a1', a2'), Arr.Aexp.Int(1)), 
+                    a1', 
                     Arr.Aexp.Arr(TEMP, bound), 
                     toSeq [
                         Arr.Stm.Assign(TEMP, out, FALSE);
-                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MIN)
+                        Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a1', ONE))
                     ]);
 
                 //Check a2 <= a1
-                Arr.Stm.Assign(TEMP, bound, ZERO);
+                Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a1', ONE));
                 Arr.For(TEMP, itr, 
+                    a2', 
                     Arr.Aexp.Arr(TEMP, bound), 
-                    Arr.Aexp.Sub(Arr.Aexp.Sub(a1', a2'), Arr.Aexp.Int(1)), 
                     toSeq [
                         Arr.Stm.Assign(TEMP, out, FALSE);
-                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MAX)
+                        Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a2', ONE))
                     ])
            ], out)
         | While.Bexp.Lte(a1, a2) -> 
@@ -109,15 +106,15 @@ module Translator =
 
             (toSeq [
                 Arr.Stm.Assign(TEMP, out, FALSE); 
-                Arr.Stm.Assign(TEMP, bound, ZERO);
+                Arr.Stm.Assign(TEMP, bound, a2');
                 Arr.For(TEMP, itr, 
-                    Arr.Aexp.Sub(a1', a2'), 
+                    a1', 
                     Arr.Aexp.Arr(TEMP, bound),
                     toSeq [
                         //Mark Lte comparison as true
                         Arr.Stm.Assign(TEMP, out, TRUE);
-                        //Set final bound to min int32 to enforce termination
-                        Arr.Stm.Assign(TEMP, bound, FOR_QUIT_MIN)  
+                        //Set final bound to a2 - 1 to enforce termination
+                        Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Sub(a2', ONE))  
                  ])
            ], out)
         | While.Bexp.Not(b1) -> 
@@ -177,13 +174,8 @@ module Translator =
     /// "temp" should be ignored.
     let rec While2Arr (stm : While.Stm) : Arr.Stm =
         match stm with
-        | While.Stm.Seq(s1, s2) -> 
-            let s1' = While2Arr s1
-            let s2' = While2Arr s2
-            Arr.Stm.Seq(s1', s2')
-        | While.Stm.Assign(var, a1) -> 
-            let a1' = xlateAexp a1
-            Arr.Stm.Assign(var, VAR_INDEX, a1')
+        | While.Stm.Seq(s1, s2) ->  Arr.Stm.Seq(While2Arr s1, While2Arr s2)
+        | While.Stm.Assign(var, a1) -> Arr.Stm.Assign(var, VAR_INDEX, xlateAexp a1)
         | While.Stm.Skip -> Arr.Stm.Assign(TEMP, SKIP_INDEX, FALSE) //Define skip as assigning 0 to an unused index
         | While.Stm.IfElse(b1, s1, s2) -> 
             (*
@@ -191,19 +183,20 @@ module Translator =
                For If (True) we Loop from 1 to b1 (and execute s1 if and only if b1 is 1)
                For If (False) we Loop from b1 to 0 (and execute s2 if and only if b1 is 0)
             *)
-            let itr = genIndex ()
-            let (stm', ind) = xlateBexp b1
+            let (stm, ind) = xlateBexp b1
             let s1' = While2Arr s1
             let s2' = While2Arr s2
+            let itr = genIndex ()
+
             toSeq [ 
-                stm';
+                stm;
                 Arr.Stm.For(TEMP, itr, 
-                    TRUE, 
+                    TRUE, //ONE 
                     Arr.Aexp.Arr(TEMP, ind), 
                     s1');
                 Arr.Stm.For(TEMP, itr, 
                     Arr.Aexp.Arr(TEMP, ind), 
-                    FALSE, 
+                    FALSE, //ZERO
                     s2')
            ]
         | While.Stm.While(b1, s1) -> 
@@ -216,25 +209,23 @@ module Translator =
               upper bound = upper bound + predicate (1 for True of 0 for False).  As long as the predicate is True
               the upper bound will continue to increase allowing the for loop to continue indefinitely.
             *)
-            let itr = genIndex ()
-            let (stm', ind) = xlateBexp b1
+            let (stm, ind) = xlateBexp b1
             let s1' = While2Arr s1
-            let lower = genIndex ()
-            let upper = genIndex ()
+            let itr = genIndex ()
+            let bound = genIndex ()
           
             toSeq [
-                stm';
-                Arr.Stm.Assign(TEMP, lower, TRUE);
-                Arr.Stm.Assign(TEMP, upper, Arr.Aexp.Arr(TEMP, ind));
+                stm;
+                Arr.Stm.Assign(TEMP, bound, Arr.Aexp.Arr(TEMP, ind));
                 Arr.Stm.For(TEMP, itr, 
-                    Arr.Aexp.Arr(TEMP, lower), 
-                    Arr.Aexp.Arr(TEMP, upper), 
+                    TRUE, //ONE 
+                    Arr.Aexp.Arr(TEMP, bound), 
                     toSeq [
                         s1'; 
-                        stm';
-                        Arr.Stm.Assign(TEMP, upper, 
+                        stm;
+                        Arr.Stm.Assign(TEMP, bound, 
                             Arr.Aexp.Add(
-                                Arr.Aexp.Arr(TEMP, upper), 
+                                Arr.Aexp.Arr(TEMP, bound), 
                                 Arr.Aexp.Arr(TEMP, ind)))
                     ])
             ]
